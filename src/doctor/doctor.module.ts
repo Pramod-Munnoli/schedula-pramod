@@ -8,10 +8,11 @@ import { RecurringAvailability } from './entities/recurring-availability.entity'
 import { CustomAvailability } from './entities/custom-availability.entity';
 import { AvailabilityController } from './availability.controller';
 import { AvailabilityService } from './availability.service';
+import { Appointment } from '../appointment/appointment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Doctor, RecurringAvailability, CustomAvailability]),
+    TypeOrmModule.forFeature([Doctor, RecurringAvailability, CustomAvailability, Appointment]),
     AuthModule,
   ],
   controllers: [AvailabilityController, DoctorController],

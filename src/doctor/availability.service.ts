@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Appointment } from '../appointment/appointment.entity';
 import { RecurringAvailability, DayOfWeek } from './entities/recurring-availability.entity';
 import { CustomAvailability } from './entities/custom-availability.entity';
 import { CreateRecurringAvailabilityDto } from './dto/create-recurring-availability.dto';
@@ -14,6 +15,8 @@ export class AvailabilityService {
     private readonly recurringRepo: Repository<RecurringAvailability>,
     @InjectRepository(CustomAvailability)
     private readonly customRepo: Repository<CustomAvailability>,
+    @InjectRepository(Appointment)
+    private readonly appointmentRepo: Repository<Appointment>,
     private readonly doctorService: DoctorService,
   ) {}
 
@@ -152,5 +155,81 @@ export class AvailabilityService {
     });
 
     return { type: 'recurring', slots: recurring };
+  }
+
+  async getAvailableSlots(doctorId: number, dateStr: string, requestedDuration?: number) {
+    const doctor = await this.doctorService.findById(doctorId);
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (dateObj < today) {
+      throw new BadRequestException('Cannot fetch slots for past dates');
+    }
+
+    const availability = await this.getByDate(doctorId, dateStr);
+    if (!availability.slots || availability.slots.length === 0) {
+      throw new NotFoundException('No availability found for this date');
+    }
+
+    const appointments = await this.appointmentRepo.find({
+      where: { doctorId, date: dateObj },
+    });
+
+    const slotDuration = requestedDuration !== undefined ? requestedDuration : (doctor.slotDuration || 15);
+    if (slotDuration <= 0 || isNaN(slotDuration)) {
+      throw new BadRequestException('Invalid slot duration');
+    }
+    const generatedSlots: string[] = [];
+    const now = new Date();
+    const isToday = dateObj.getTime() === today.getTime();
+    const currentTimeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+    for (const block of availability.slots) {
+      let currentStart = this.parseTime(block.startTime);
+      const end = this.parseTime(block.endTime);
+
+      while (currentStart + slotDuration <= end) {
+        const slotStartStr = this.formatTime(currentStart);
+        const slotEndStr = this.formatTime(currentStart + slotDuration);
+
+        // Filter past slots if today
+        if (!(isToday && slotStartStr < currentTimeStr)) {
+          // Check if overlapping with any appointment
+          const isBooked = appointments.some(appt => {
+            return this.hasOverlap([{ startTime: appt.startTime, endTime: appt.endTime }], slotStartStr, slotEndStr);
+          });
+
+          if (!isBooked) {
+            generatedSlots.push(`${slotStartStr} - ${slotEndStr}`);
+          }
+        }
+        currentStart += slotDuration;
+      }
+    }
+
+    if (generatedSlots.length === 0) {
+      throw new NotFoundException('No slots available for this date');
+    }
+
+    return {
+      doctorId,
+      date: dateStr,
+      availableSlots: generatedSlots,
+    };
+  }
+
+  private parseTime(timeStr: string): number {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private formatTime(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   }
 }

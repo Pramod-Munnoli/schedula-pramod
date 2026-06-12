@@ -34,6 +34,9 @@ export class Doctor {
   @Column({ type: 'text' })
   profileDetails: string;
 
+  @Column({ type: 'int', default: 15 })
+  slotDuration: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }
