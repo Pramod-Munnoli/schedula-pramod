@@ -5,10 +5,10 @@ export class CreateUserTable1780932340000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE TYPE "public"."user_role_enum" AS ENUM('DOCTOR', 'PATIENT')`,
+      `DO $$ BEGIN CREATE TYPE "public"."user_role_enum" AS ENUM('DOCTOR', 'PATIENT'); EXCEPTION WHEN duplicate_object THEN null; END $$;`
     );
     await queryRunner.query(
-      `CREATE TABLE "user" (
+      `CREATE TABLE IF NOT EXISTS "user" (
         "id" SERIAL NOT NULL,
         "email" character varying NOT NULL,
         "password" character varying NOT NULL,

@@ -4,13 +4,17 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/user.entity';
 import { DoctorService } from './doctor.service';
+import { AvailabilityService } from './availability.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { QueryDoctorDto } from './dto/query-doctor.dto';
 
 @Controller('doctor')
 export class DoctorController {
-  constructor(private readonly doctorService: DoctorService) {}
+  constructor(
+    private readonly doctorService: DoctorService,
+    private readonly availabilityService: AvailabilityService,
+  ) {}
 
   @Get()
   async findAll(@Query() query: QueryDoctorDto) {
@@ -41,6 +45,19 @@ export class DoctorController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.doctorService.findById(id);
+  }
+
+  @Get(':id/slots')
+  async getDoctorSlots(
+    @Param('id') doctorId: string,
+    @Query('date') date: string,
+    @Query('duration') duration?: string,
+  ) {
+    if (!date) {
+      return { message: 'Date is required' };
+    }
+    const durationNum = duration !== undefined ? Number(duration) : undefined;
+    return this.availabilityService.getAvailableSlots(Number(doctorId), date, durationNum);
   }
 }
 

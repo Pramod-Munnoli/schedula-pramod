@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsString, IsInt, Min, IsOptional } from 'class-validator';
 
 export class CreateDoctorDto {
   @IsNotEmpty()
@@ -30,4 +30,9 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   @IsString()
   profileDetails: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  slotDuration?: number;
 }
